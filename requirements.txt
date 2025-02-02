@@ -1,0 +1,12 @@
+pandas
+datasets
+huggingface_hub
+torch
+transformers
+python-dotenv
+accelerate
+jinja2
+tqdm
+scipy
+matplotlib
+openai

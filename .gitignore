@@ -1,0 +1,9 @@
+.python-version
+__pycache__/
+.env
+/env
+/outputs
+/scripts
+/data/perdoc/raw
+/data/permpst/raw
+main.sh
