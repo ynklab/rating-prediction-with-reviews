@@ -34,7 +34,7 @@ def extract_json_from_output(text):
         start = text.find("{")
         if start == -1:
             print("No opening brace found.")
-            return None
+            return {}
 
         # Use a counter to find the matching closing brace
         counter = 0
@@ -50,7 +50,7 @@ def extract_json_from_output(text):
 
         if end is None:
             print("Could not find a matching closing brace for the JSON object.")
-            return None
+            return {}
 
         json_str = text[start : end + 1]
 

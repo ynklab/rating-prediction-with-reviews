@@ -12,6 +12,8 @@ def get_model_id(model: str):
         return "meta-llama/Llama-3.1-8B-Instruct"
     elif model == "llama-31-8b":
         return "meta-llama/Llama-3.1-8B"
+    elif model == "r1-distill-llama":
+        return "deepseek-ai/DeepSeek-R1-Distill-Llama-8B"
     else:
         raise ValueError(f"Invalid model: {model}")
 
