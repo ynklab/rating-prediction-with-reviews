@@ -50,7 +50,11 @@ if __name__ == "__main__":
 
     result_rows = []
     for instance in tqdm(dataset):
-        prompt = instance.make_prompt(mode)
+        preference = None
+        if mode == "kar":
+            preference_prompt = instance.make_reasoning_prompt(mode)
+            preference = model(preference_prompt)
+        prompt = instance.make_prompt(mode, preference)
         response = model(prompt)
         result_rows.append(
             [
@@ -58,11 +62,13 @@ if __name__ == "__main__":
                 response,
                 instance.label_review,
                 instance.label_score,
+                preference,
             ]
         )
 
     output_df = pd.DataFrame(
-        result_rows, columns=["prompt", "raw_response", "label_review", "label_score"]
+        result_rows,
+        columns=["prompt", "raw_response", "label_review", "label_score", "preference"],
     )
 
     output = output_root_path / "raw_output.csv"
