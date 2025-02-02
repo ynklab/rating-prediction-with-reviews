@@ -10,3 +10,4 @@ tqdm
 scipy
 matplotlib
 openai
+scikit-learn

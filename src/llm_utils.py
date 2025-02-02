@@ -3,9 +3,7 @@ import transformers
 import hashlib
 import numpy as np
 import os
-from typing import Any
 
-from openai import OpenAI
 from huggingface_hub import login
 
 
