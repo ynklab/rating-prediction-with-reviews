@@ -14,7 +14,9 @@ from tqdm import tqdm
 from datasets.permpst import load_permpst
 import pandas as pd
 
-PERMPST_PATH = "/work/gh35/h35008/preference-prediction-prompt/data/permpst/raw/review.valid.c3.jsonl"
+
+def get_permpst_path(k: int) -> str:
+    return f"/work/gh35/h35008/preference-prediction-prompt/data/permpst/raw/review.valid.c{k}.jsonl"
 
 
 if __name__ == "__main__":
@@ -22,6 +24,7 @@ if __name__ == "__main__":
     parser.add_argument("--model", type=str, default="llama-31-8b-i")
     parser.add_argument("--mode", type=str)
     parser.add_argument("--debug", action="store_true", default=False)
+    parser.add_argment("--k", type=int, default=3)
 
     load_dotenv()
 
@@ -29,9 +32,10 @@ if __name__ == "__main__":
     model_name = args.model
     mode = args.mode
     debug = args.debug
+    k = args.k
 
     job_id = os.environ["PJM_JOBID"]
-    run_id = f"{job_id}_{model_name}_{mode}"
+    run_id = f"{job_id}_{model_name}_{mode}_{k}"
     if debug:
         run_id = f"0_debug_{run_id}"
     print(f"Run ID: {run_id}")
@@ -42,6 +46,7 @@ if __name__ == "__main__":
 
     model = load_model(model_name)
 
+    PERMPST_PATH = get_permpst_path(k)
     dataset = load_permpst(PERMPST_PATH)
 
     if debug:

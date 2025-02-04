@@ -20,7 +20,6 @@ def extract_reviewer_scores_from_prompt(prompt_json_str) -> list[int]:
     user_prompt = prompt_json[1]["content"]
     # Extract the patterns of "Score": <score: int>
     pattern = r'"Score": \s*(\d+)'
-    # There should be 3
     scores = re.findall(pattern, user_prompt)
     return [int(score) for score in scores]
 
