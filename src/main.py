@@ -24,7 +24,7 @@ if __name__ == "__main__":
     parser.add_argument("--model", type=str, default="llama-31-8b-i")
     parser.add_argument("--mode", type=str)
     parser.add_argument("--debug", action="store_true", default=False)
-    parser.add_argment("--k", type=int, default=3)
+    parser.add_argument("--k", type=int, default=3)
 
     load_dotenv()
 
