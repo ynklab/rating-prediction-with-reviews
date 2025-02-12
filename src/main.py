@@ -12,11 +12,17 @@ from llm_utils import load_model
 
 from tqdm import tqdm
 from datasets.permpst import load_permpst
+from datasets.openai_tldr_axis import load_openai_tldr_axis
 import pandas as pd
 
 
 def get_permpst_path(k: int) -> str:
     return f"/work/gh35/h35008/preference-prediction-prompt/data/permpst/raw/review.valid.c{k}.jsonl"
+
+
+def get_tldr_path(k: int) -> str:
+    # TODO: Use k
+    return "/work/gh35/h35008/preference-prediction-prompt/data/openai-tldr-axis/raw/valid.c3.jsonl"
 
 
 if __name__ == "__main__":
@@ -27,6 +33,7 @@ if __name__ == "__main__":
     parser.add_argument("--k", type=int, default=3)
     parser.add_argument("--from-idx", type=int, required=False, default=None)
     parser.add_argument("--to-idx", type=int, required=False, default=None)
+    parser.add_argument("--dataset", type=str, default="permpst")
 
     load_dotenv()
 
@@ -35,9 +42,14 @@ if __name__ == "__main__":
     mode = args.mode
     debug = args.debug
     k = args.k
+    dataset_name = args.dataset
 
-    PERMPST_PATH = get_permpst_path(k)
-    dataset = load_permpst(PERMPST_PATH)
+    if dataset_name == "permpst":
+        permpst_path = get_permpst_path(k)
+        dataset = load_permpst(permpst_path)
+    elif dataset_name == "tldr":
+        tldr_path = get_tldr_path(k)
+        dataset = load_openai_tldr_axis(tldr_path)
 
     from_idx = args.from_idx
     if from_idx is None:
@@ -48,7 +60,9 @@ if __name__ == "__main__":
         to_idx = len(dataset)
 
     job_id = os.environ["PJM_JOBID"]
-    run_id = f"{job_id}_{model_name}_{mode}_{k}_from_{from_idx}_to_{to_idx}"
+    run_id = (
+        f"{job_id}_{model_name}_{mode}_{dataset_name}_{k}_from_{from_idx}_to_{to_idx}"
+    )
     if debug:
         run_id = f"0_debug_{run_id}"
     print(f"Run ID: {run_id}")
@@ -63,7 +77,7 @@ if __name__ == "__main__":
 
     if debug:
         random.seed(0)
-        dataset = random.sample(dataset, 100)
+        dataset = random.sample(dataset, min(100, len(dataset)))
 
     result_rows = []
     for instance in tqdm(dataset):
