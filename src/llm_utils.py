@@ -10,6 +10,8 @@ from huggingface_hub import login
 def get_model_id(model: str):
     if model == "llama-31-8b-i":
         return "meta-llama/Llama-3.1-8B-Instruct"
+    elif model == "llama-33-70b-i":
+        return "meta-llama/Llama-3.3-70B-Instruct"
     elif model == "llama-31-8b":
         return "meta-llama/Llama-3.1-8B"
     elif model == "r1-distill-llama":
