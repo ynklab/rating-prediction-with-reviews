@@ -31,7 +31,7 @@ def fix_json_string(json_str):
     Assumes that the JSON should only contain the keys "Review" and "Score".
     """
     # Locate the "Review" key in the JSON string.
-    review_key_pattern = r'("Review"\s*:\s*")'
+    review_key_pattern = r'("Note"\s*:\s*")'
     match = re.search(review_key_pattern, json_str)
     if not match:
         # If no "Review" key is found, return the string as-is.
@@ -123,7 +123,7 @@ def extract_json_from_output(text):
         try:
             data = json.loads(fixed_json_str)
             # Filter out any keys other than "Review" and "Score"
-            data = {k: v for k, v in data.items() if k in ["Review", "Score"]}
+            data = {k: v for k, v in data.items() if k in ["Note", "Score"]}
             return data
         except json.JSONDecodeError as e2:
             print("Failed to decode JSON after fix:", e2)
@@ -151,11 +151,12 @@ if __name__ == "__main__":
         for prompt in output_df["prompt"]
     ]
 
-    output_df["output_review"] = [d.get("Review") for d in output_dicts]
+    output_df["output_review"] = [d.get("Note") for d in output_dicts]
     output_df["output_score"] = [d.get("Score") for d in output_dicts]
     output_df["reviewer_scores"] = reviewer_scores_jsons
 
     output_df.to_csv(output_path / "processed_output.csv", index=False)
+    output_df = output_df.dropna(subset=["label_score"])
 
     # Measure the performance
     # Ratio of None score
@@ -168,6 +169,14 @@ if __name__ == "__main__":
 
     non_null_label = non_null_output_df["label_score"]
     non_null_output = non_null_output_df["output_score"]
+
+    # Count NaNs in each array
+    nan_count_label = np.isnan(non_null_label).sum()
+    nan_count_output = np.isnan(non_null_output).sum()
+
+    # Count infs in each array
+    inf_count_label = np.isinf(non_null_label).sum()
+    inf_count_output = np.isinf(non_null_output).sum()
 
     # Kendall correlation
     kendall_corr, _ = scipy.stats.kendalltau(non_null_label, non_null_output)
@@ -185,6 +194,9 @@ if __name__ == "__main__":
         np.mean(json.loads(scores)) for scores in non_null_output_df["reviewer_scores"]
     ]
 
+    # Nan in reviewer_score_avgs
+    nan_count_reviewer_score_avgs = np.isnan(reviewer_score_avgs).sum()
+
     # Repeat using reviewer avgs as the output
     reviewer_avg_kendall_corr, _ = scipy.stats.kendalltau(
         non_null_label, reviewer_score_avgs
@@ -192,12 +204,12 @@ if __name__ == "__main__":
     reviewer_avg_spearman_corr, _ = scipy.stats.spearmanr(
         non_null_label, reviewer_score_avgs
     )
-    reviewer_avg_mae = sklearn.metrics.mean_absolute_error(
-        non_null_label, reviewer_score_avgs
-    )
-    reviewer_avg_mse = sklearn.metrics.mean_squared_error(
-        non_null_label, reviewer_score_avgs
-    )
+    # reviewer_avg_mae = sklearn.metrics.mean_absolute_error(
+    #     non_null_label, reviewer_score_avgs
+    # )
+    # reviewer_avg_mse = sklearn.metrics.mean_squared_error(
+    #     non_null_label, reviewer_score_avgs
+    # )
 
     output_stat_path = output_path / "output_stats.json"
     with open(output_stat_path, "w") as f:
@@ -211,8 +223,8 @@ if __name__ == "__main__":
                 "mse": mse,
                 "reviewer_avg_kendall_corr": reviewer_avg_kendall_corr,
                 "reviewer_avg_spearman_corr": reviewer_avg_spearman_corr,
-                "reviewer_avg_mae": reviewer_avg_mae,
-                "reviewer_avg_mse": reviewer_avg_mse,
+                # "reviewer_avg_mae": reviewer_avg_mae,
+                # "reviewer_avg_mse": reviewer_avg_mse,
             },
             f,
             indent=4,
