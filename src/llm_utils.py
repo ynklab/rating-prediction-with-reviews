@@ -5,6 +5,7 @@ import numpy as np
 import os
 
 from huggingface_hub import login
+from transformers import AutoTokenizer, Gemma3ForCausalLM
 
 
 def get_model_id(model: str):
@@ -12,6 +13,10 @@ def get_model_id(model: str):
         return "meta-llama/Llama-3.1-8B-Instruct"
     elif model == "llama-33-70b-i":
         return "meta-llama/Llama-3.3-70B-Instruct"
+    elif model == "gemma3-12b-it":
+        return "google/gemma-3-12b-it"
+    elif model == "gemma3-27b-it":
+        return "google/gemma-3-27b-it"
     elif model == "llama-31-8b":
         return "meta-llama/Llama-3.1-8B"
     elif model == "r1-distill-llama":
@@ -77,6 +82,53 @@ class LlamaPipeline:
         return response[0]["generated_text"]
 
 
+class GemmaPipeline:
+    def __init__(self, model_id: str):
+        self.processor = AutoTokenizer.from_pretrained(model_id)
+        self.model = Gemma3ForCausalLM.from_pretrained(
+            model_id, device_map="auto", torch_dtype=torch.bfloat16
+        )
+
+    def build_prompt(self, prompt: list[dict]) -> list[dict]:
+        return [
+            {
+                "role": message["role"],
+                "content": [
+                    {
+                        "type": "text",
+                        "text": message["content"],
+                    }
+                ],
+            }
+            for message in prompt
+        ]
+
+    def __call__(self, prompt: list[dict]) -> str:
+        # Generate the response from the model
+        messages = self.build_prompt(prompt)
+        inputs = self.processor.apply_chat_template(
+            messages,
+            add_generation_prompt=True,
+            tokenize=True,
+            return_dict=True,
+            return_tensors="pt",
+            padding="longest",
+            tokenizer_kwargs={
+                "pad_to_multiple_of": 8,
+            },
+        ).to(self.model.device)
+
+        input_len = inputs["input_ids"].shape[-1]
+        generation = self.model.generate(
+            **inputs,
+            max_new_tokens=768,
+        )
+        generation = generation[0][input_len:]
+        decoded = self.processor.decode(generation, skip_special_tokens=True)
+
+        return decoded
+
+
 MODEL = None
 
 
@@ -87,7 +139,11 @@ def load_model(model: str):
     else:
         hf_token = os.environ["HF_TOKEN"]
         login(token=hf_token)
-
-        model_id = get_model_id(model)
-        MODEL = LlamaPipeline(model_id)
-        return MODEL
+        if model.startswith("gemma"):
+            model_id = get_model_id(model)
+            MODEL = GemmaPipeline(model_id)
+            return MODEL
+        else:
+            model_id = get_model_id(model)
+            MODEL = LlamaPipeline(model_id)
+            return MODEL
