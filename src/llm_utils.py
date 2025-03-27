@@ -5,7 +5,7 @@ import numpy as np
 import os
 
 from huggingface_hub import login
-from transformers import AutoTokenizer, Gemma3ForCausalLM
+from transformers import AutoTokenizer, Gemma3ForCausalLM, AutoModelForCausalLM
 
 
 def get_model_id(model: str):
@@ -17,6 +17,8 @@ def get_model_id(model: str):
         return "google/gemma-3-12b-it"
     elif model == "gemma3-27b-it":
         return "google/gemma-3-27b-it"
+    elif model == "qwq-32b":
+        return "Qwen/QwQ-32B"
     elif model == "llama-31-8b":
         return "meta-llama/Llama-3.1-8B"
     elif model == "r1-distill-llama":
@@ -129,6 +131,36 @@ class GemmaPipeline:
         return decoded
 
 
+class QwQPipeline:
+    def __init__(self, model_id: str):
+        self.processor = AutoTokenizer.from_pretrained(model_id)
+        self.model = AutoModelForCausalLM.from_pretrained(
+            model_id, device_map="auto", torch_dtype=torch.bfloat16
+        )
+
+    def __call__(self, prompt: list[dict]) -> str:
+        # Generate the response from the model
+        inputs = self.processor.apply_chat_template(
+            prompt,
+            add_generation_prompt=True,
+            tokenize=False,
+        )
+        model_inputs = self.processor([inputs], return_tensors="pt").to(
+            self.model.device
+        )
+
+        generated_ids = self.model.generate(**model_inputs, max_new_tokens=32768)
+        generated_ids = [
+            output_ids[len(input_ids) :]
+            for input_ids, output_ids in zip(model_inputs.input_ids, generated_ids)
+        ]
+        response = self.processor.batch_decode(generated_ids, skip_special_tokens=True)[
+            0
+        ]
+
+        return response
+
+
 MODEL = None
 
 
@@ -142,6 +174,10 @@ def load_model(model: str):
         if model.startswith("gemma"):
             model_id = get_model_id(model)
             MODEL = GemmaPipeline(model_id)
+            return MODEL
+        elif model.startswith("qwq"):
+            model_id = get_model_id(model)
+            MODEL = QwQPipeline(model_id)
             return MODEL
         else:
             model_id = get_model_id(model)
