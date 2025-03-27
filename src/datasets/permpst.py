@@ -33,6 +33,35 @@ Please remember to replace the placeholder text within the "<>" with the appropr
 """
 
 ORIGINAL_ASSISTANT_BEGIN = "[Review] Here is the Json format of the review: "
+
+NOREVIEW_SCORE_CASE_TEMPLATE = """[The Start of Plot {n}]
+{plot}
+[The End of Plot {n}]
+[Review]
+```json
+{{
+  "Score": {score}
+}}
+```
+"""
+
+NOREVIEW_SCORE_PROBLEM_PROMPT_TEMPLATE = """[User Question] You will be presented with several plot summaries, each accompanied by a review from the same critic. Your task is to analyze both the plot summaries and the corresponding reviews to discern the reviewer's preferences. Afterward, consider a new plot and create a review that you believe this reviewer would write based on the established preferences. 
+
+{icl_example}
+
+Please follow the above critic and give a review for the given plot. Your response should strictly follow the format: 
+```json
+{{
+  "Score": <1-10, 1 is the lowest and 10 is the highest>
+}}
+```
+Please remember to replace the placeholder text within the "<>" with the appropriate details of your response.
+
+[The Start of Plot]
+{plot}
+[The End of Plot]
+"""
+
 COT_ASSISTANT_BEGIN = "Let's think step by step."
 PS_ASSISTANT_BEGIN = "Let's first understand the problem and devise a plan to solve the problem. Then, let's carry out the plan and solve the problem step by step."
 
@@ -98,19 +127,32 @@ class PerMPSTInstance:
         return messages
 
     def make_prompt(self, mode: str, preference: str | None = None):
-        if mode not in ["original", "cot", "ps", "kar"]:
+        if mode not in ["original", "noreview", "readreview", "cot", "ps", "kar"]:
             raise ValueError(f"Invalid mode: {mode}")
         icl_content = ""
         for i, x in enumerate(self.examples):
-            case = ORIGINAL_SCORE_CASE_TEMPLATE.format(
-                n=i + 1,
-                plot=x["summ_plot"],
-                review=x["clean_review"],
-                score=x["score"],
-            )
+            if mode == "noreview":
+                case = NOREVIEW_SCORE_CASE_TEMPLATE.format(
+                    n=i + 1,
+                    plot=x["summ_plot"],
+                    score=x["score"],
+                )
+            else:
+                case = ORIGINAL_SCORE_CASE_TEMPLATE.format(
+                    n=i + 1,
+                    plot=x["summ_plot"],
+                    review=x["clean_review"],
+                    score=x["score"],
+                )
             icl_content += case + "\n"
 
-        if mode == "original":
+        if mode == "noreview" or mode == "readreview":
+            prompt = NOREVIEW_SCORE_PROBLEM_PROMPT_TEMPLATE.format(
+                icl_example=icl_content,
+                plot=self.target["summ_plot"],
+            )
+            assistant_begin = ORIGINAL_ASSISTANT_BEGIN
+        elif mode == "original":
             prompt = ORIGINAL_SCORE_PROBLEM_PROMPT_TEMPLATE.format(
                 icl_example=icl_content,
                 plot=self.target["summ_plot"],
