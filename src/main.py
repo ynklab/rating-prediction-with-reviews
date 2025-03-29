@@ -27,8 +27,7 @@ def get_tldr_path(k: int) -> str:
 
 
 def get_recipe_path(k: int) -> str:
-    # TODO: Use k
-    return "/work/gh35/h35008/preference-prediction-prompt/data/recipe/formatted/PP_test_3.jsonl"
+    return f"/work/gh35/h35008/preference-prediction-prompt/data/recipe/formatted/PP_test_{k}.jsonl"
 
 
 if __name__ == "__main__":
