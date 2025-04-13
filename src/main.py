@@ -14,6 +14,7 @@ from tqdm import tqdm
 from datasets.permpst import load_permpst
 from datasets.openai_tldr_axis import load_openai_tldr_axis
 from datasets.recipe import load_recipe
+from datasets.books import load_books
 import pandas as pd
 
 
@@ -28,6 +29,12 @@ def get_tldr_path(k: int) -> str:
 
 def get_recipe_path(k: int) -> str:
     return f"/work/gh35/h35008/preference-prediction-prompt/data/recipe/formatted/PP_test_{k}.jsonl"
+
+
+def get_books_path(k: int) -> str:
+    # TODO: Use k?
+    assert k == 5
+    return "/work/gh35/h35008/preference-prediction-prompt/data/books/formatted/sampled_books.jsonl"
 
 
 if __name__ == "__main__":
@@ -58,6 +65,11 @@ if __name__ == "__main__":
     elif dataset_name == "recipe":
         recipe_path = get_recipe_path(k)
         dataset = load_recipe(recipe_path)
+    elif dataset_name == "books":
+        books_path = get_books_path(k)
+        dataset = load_books(books_path)
+    else:
+        raise ValueError(f"Unknown dataset: {dataset_name}")
 
     from_idx = args.from_idx
     if from_idx is None:
