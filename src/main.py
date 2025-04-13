@@ -13,6 +13,7 @@ from llm_utils import load_model
 from tqdm import tqdm
 from datasets.permpst import load_permpst
 from datasets.openai_tldr_axis import load_openai_tldr_axis
+from datasets.recipe import load_recipe
 import pandas as pd
 
 
@@ -23,6 +24,11 @@ def get_permpst_path(k: int) -> str:
 def get_tldr_path(k: int) -> str:
     # TODO: Use k
     return "/work/gh35/h35008/preference-prediction-prompt/data/openai-tldr-axis/raw/valid.c3.jsonl"
+
+
+def get_recipe_path(k: int) -> str:
+    # TODO: Use k
+    return "/work/gh35/h35008/preference-prediction-prompt/data/recipe/formatted/PP_test_3.jsonl"
 
 
 if __name__ == "__main__":
@@ -50,6 +56,9 @@ if __name__ == "__main__":
     elif dataset_name == "tldr":
         tldr_path = get_tldr_path(k)
         dataset = load_openai_tldr_axis(tldr_path)
+    elif dataset_name == "recipe":
+        recipe_path = get_recipe_path(k)
+        dataset = load_recipe(recipe_path)
 
     from_idx = args.from_idx
     if from_idx is None:

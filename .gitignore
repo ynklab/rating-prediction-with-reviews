@@ -6,4 +6,5 @@ __pycache__/
 /scripts
 /data/perdoc/raw
 /data/permpst/raw
+/data/recipe/raw
 main.sh

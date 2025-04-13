@@ -164,19 +164,16 @@ if __name__ == "__main__":
 
     # Accuracy
     accuracy = (output_df["output_score"] == output_df["label_score"]).mean()
+    # See if there is any string in label_score output_score
+    for col in ["label_score", "output_score"]:
+        output_df[col] = output_df[col].apply(
+            lambda x: x if isinstance(x, (int, float)) else np.nan
+        )
 
     non_null_output_df = output_df.dropna(subset=["output_score"])
 
     non_null_label = non_null_output_df["label_score"]
     non_null_output = non_null_output_df["output_score"]
-
-    # Count NaNs in each array
-    nan_count_label = np.isnan(non_null_label).sum()
-    nan_count_output = np.isnan(non_null_output).sum()
-
-    # Count infs in each array
-    inf_count_label = np.isinf(non_null_label).sum()
-    inf_count_output = np.isinf(non_null_output).sum()
 
     # Kendall correlation
     kendall_corr, _ = scipy.stats.kendalltau(non_null_label, non_null_output)
