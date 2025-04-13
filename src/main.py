@@ -105,7 +105,11 @@ if __name__ == "__main__":
         if mode == "kar":
             preference_prompt = instance.make_reasoning_prompt(mode)
             preference = model(preference_prompt)
-        prompt = instance.make_prompt(mode, preference)
+        elif mode == "scoresumm":
+            score_trend_prompt = instance.make_score_trend_prompt(mode)
+            score_trend = model(score_trend_prompt)
+
+        prompt = instance.make_prompt(mode, preference, score_trend=score_trend)
         response = model(prompt)
         result_rows.append(
             [
@@ -114,12 +118,20 @@ if __name__ == "__main__":
                 instance.label_review,
                 instance.label_score,
                 preference,
+                score_trend,
             ]
         )
 
     output_df = pd.DataFrame(
         result_rows,
-        columns=["prompt", "raw_response", "label_review", "label_score", "preference"],
+        columns=[
+            "prompt",
+            "raw_response",
+            "label_review",
+            "label_score",
+            "preference",
+            "score_trend",
+        ],
     )
 
     output = output_root_path / "raw_output.csv"

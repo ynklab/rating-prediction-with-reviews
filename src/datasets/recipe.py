@@ -94,6 +94,36 @@ Please remember to replace the placeholder text within the "<>" with the appropr
 [The End of Recipe]
 """
 
+SCORESUMM_REASONING_TEMPLATE = """A user's past recipe reviews are listed below:
+
+{icl_example}
+
+Based on this user’s past reviews, what are the most common scores they give for positive and negative reviews?
+Answer in the following form:
+most common positive score: <most common positive score>, most common negative score: <most common negative score>
+"""
+
+SCORESUMM_SCORE_PROBLEM_PROMPT_TEMPLATE = """[User Question] You will be presented with several recipes, each accompanied by a review from the same user. Your task is to analyze both the recipe and the corresponding reviews to discern the reviewer's preferences. Afterward, consider a new recipe and create a review that you believe this reviewer would write based on the established preferences. 
+
+{icl_example}
+
+The trend of review scores given by this user is analyzed as follows:
+{score_trend}
+
+Please follow the above user and give a review for the given recipe. Your response should strictly follow the format: 
+```json
+{{
+  "Review": "<proposed review conforms to style demonstrated in the previous reviews>",
+  "Score": <1-5, 1 is the lowest and 5 is the highest>
+}}
+```
+Please remember to replace the placeholder text within the "<>" with the appropriate details of your response.
+
+[The Start of Recipe]
+{recipe}
+[The End of Recipe]
+"""
+
 
 class RecipeInstance:
     def __init__(self, instance: dict):
@@ -101,6 +131,29 @@ class RecipeInstance:
         self.target = instance["target"]
         self.label_review = self.target["review"]
         self.label_score = int(self.target["score"])
+
+    def make_score_trend_prompt(self, mode: str):
+        if mode not in ["scoresumm"]:
+            raise ValueError(f"Invalid mode: {mode}")
+        icl_content = ""
+        for i, x in enumerate(self.examples):
+            case = ORIGINAL_SCORE_CASE_TEMPLATE.format(
+                n=i + 1,
+                recipe=x["recipe_text"],
+                review=x["review"],
+                score=int(x["score"]),
+            )
+            icl_content += case + "\n"
+
+        prompt = SCORESUMM_REASONING_TEMPLATE.format(
+            icl_example=icl_content,
+        )
+        messages = [
+            {"role": "system", "content": ORIGINAL_SCORE_SYSTEM_PROMPT},
+            {"role": "user", "content": prompt},
+        ]
+
+        return messages
 
     def make_reasoning_prompt(self, mode: str):
         if mode not in ["kar"]:
@@ -125,8 +178,18 @@ class RecipeInstance:
 
         return messages
 
-    def make_prompt(self, mode: str, preference: str | None = None):
-        if mode not in ["original", "noreview", "readreview", "cot", "ps", "kar"]:
+    def make_prompt(
+        self, mode: str, preference: str | None = None, score_trend: str | None = None
+    ):
+        if mode not in [
+            "original",
+            "noreview",
+            "readreview",
+            "cot",
+            "ps",
+            "kar",
+            "scoresumm",
+        ]:
             raise ValueError(f"Invalid mode: {mode}")
         icl_content = ""
         for i, x in enumerate(self.examples):
@@ -169,13 +232,22 @@ class RecipeInstance:
                 recipe=self.target["recipe_text"],
             )
             assistant_begin = PS_ASSISTANT_BEGIN
-        else:
+        elif mode == "kar":
             prompt = KAR_SCORE_PROBLEM_PROMPT_TEMPLATE.format(
                 icl_example=icl_content,
                 recipe=self.target["recipe_text"],
                 preference=preference,
             )
             assistant_begin = ORIGINAL_ASSISTANT_BEGIN
+        elif mode == "scoresumm":
+            prompt = SCORESUMM_SCORE_PROBLEM_PROMPT_TEMPLATE.format(
+                icl_example=icl_content,
+                recipe=self.target["recipe_text"],
+                score_trend=score_trend,
+            )
+            assistant_begin = ORIGINAL_ASSISTANT_BEGIN
+        else:
+            raise ValueError(f"Invalid mode: {mode}")
         messages = [
             {"role": "system", "content": ORIGINAL_SCORE_SYSTEM_PROMPT},
             {"role": "user", "content": prompt},
