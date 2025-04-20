@@ -12,7 +12,6 @@ from llm_utils import load_model
 
 from tqdm import tqdm
 from datasets.permpst import load_permpst
-from datasets.openai_tldr_axis import load_openai_tldr_axis
 from datasets.recipe import load_recipe
 from datasets.books import load_books
 import pandas as pd
@@ -61,6 +60,21 @@ if __name__ == "__main__":
     else:
         raise ValueError(f"Unknown dataset: {dataset_name}")
 
+    if mode in [
+        "user-profile",
+        "user-profile-readreview",
+        "user-profile-noreview",
+        "user-profile-noicl",
+    ]:
+        preference_csv = pd.read_csv(
+            f"/work/gh35/h35008/preference-prediction-prompt/data/{dataset_name}/user_profile/{model_name}/output.csv"
+        )
+
+        preference_list = preference_csv["raw_response"].tolist()
+
+        for i, instance in enumerate(dataset):
+            instance.preference = preference_list[i]
+
     from_idx = args.from_idx
     if from_idx is None:
         from_idx = 0
@@ -103,6 +117,13 @@ if __name__ == "__main__":
         if mode == "scoresumm":
             score_trend_prompt = instance.make_score_trend_prompt(mode)
             score_trend = model(score_trend_prompt)
+        if mode in [
+            "user-profile",
+            "user-profile-readreview",
+            "user-profile-noreview",
+            "user-profile-noicl",
+        ]:
+            preference = instance.preference
 
         prompt = instance.make_prompt(
             mode, preference, score_trend=score_trend, recommendation=recommendation
