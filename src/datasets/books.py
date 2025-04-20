@@ -70,7 +70,7 @@ KAR_PREFERENCE_REASONING_TEMPLATE = """A user's past book reviews are listed bel
 
 {icl_example}
 
-Analyze the user's preferences. Provide clear explanations based on details from thep past reviews and other pertinent factors.
+Analyze the user's preferences. Provide clear explanations based on details from the past reviews and other pertinent factors.
 """
 
 KAR_SCORE_PROBLEM_PROMPT_TEMPLATE = """[User Question] You will be presented with several book descriptions, each accompanied by a review from the same user. Your task is to analyze both the descriptions and the corresponding reviews to discern the reviewer's preferences. Afterward, consider a new book description and create a review that you believe this reviewer would write based on the established preferences. 
@@ -126,13 +126,59 @@ Please remember to replace the placeholder text within the "<>" with the appropr
 [The End of Book Description]
 """
 
+LLMREC_RECPARA_PROMPT_TEMPLATE = """
+The description of a book is as follows:
+
+{description}
+
+what else should I say if I want to recommend it to others?
+"""
+
+KAR_LLMREC_SCORE_PROBLEM_PROMPT_TEMPLATE = """[User Question] You will be presented with several book descriptions, each accompanied by a review from the same user. Your task is to analyze both the descriptions and the corresponding reviews to discern the reviewer's preferences. Afterward, consider a new book description and create a review that you believe this reviewer would write based on the established preferences. 
+
+{icl_example}
+
+The preference of him/her is analyzed as follows:
+
+{preference}
+
+Please follow the above user and give a review for the given book. The book's recommendation text is also given as an additional input. Your response should strictly follow the format: 
+```json
+{{
+  "Review": "<proposed review conforms to style demonstrated in the previous reviews>",
+  "Score": <1-5, 1 is the lowest and 5 is the highest>
+}},
+    "/work/gh35/h35008/preference-prediction-prompt/outputs/6807980_gemma3-12b-it_kar-llmrec_books_5_from_750_to_1000/raw_output.csv"
+```
+Please remember to replace the placeholder text within the "<>" with the appropriate details of your response.
+
+[The Start of Book Description]
+{description}
+[The End of Book Description]
+[The Start of Recommendation Text]
+{recommendation}
+[The End of Recommendation Text]
+"""
+
 
 class BookInstance:
-    def __init__(self, instance: dict):
-        self.examples = instance["demonstrations"]
+    def __init__(self, instance: dict, k: int = 5):
+        self.examples = instance["demonstrations"][:k]
         self.target = instance["target"]
         self.label_review = self.target["review"]
         self.label_score = int(self.target["score"])
+
+    def make_recommendation_prompt(self, mode: str):
+        if mode not in ["kar-llmrec"]:
+            raise ValueError(f"Invalid mode: {mode}")
+        prompt = LLMREC_RECPARA_PROMPT_TEMPLATE.format(
+            description=self.target["item_text"],
+        )
+        messages = [
+            {"role": "system", "content": ORIGINAL_SCORE_SYSTEM_PROMPT},
+            {"role": "user", "content": prompt},
+        ]
+        return messages
 
     def make_score_trend_prompt(self, mode: str):
         if mode not in ["scoresumm"]:
@@ -158,7 +204,7 @@ class BookInstance:
         return messages
 
     def make_reasoning_prompt(self, mode: str):
-        if mode not in ["kar"]:
+        if mode not in ["kar", "kar-llmrec"]:
             raise ValueError(f"Invalid mode: {mode}")
         icl_content = ""
         for i, x in enumerate(self.examples):
@@ -181,7 +227,11 @@ class BookInstance:
         return messages
 
     def make_prompt(
-        self, mode: str, preference: str | None = None, score_trend: str | None = None
+        self,
+        mode: str,
+        preference: str | None = None,
+        score_trend: str | None = None,
+        recommendation: str | None = None,
     ):
         if mode not in [
             "original",
@@ -190,6 +240,7 @@ class BookInstance:
             "cot",
             "ps",
             "kar",
+            "kar-llmrec",
             "scoresumm",
         ]:
             raise ValueError(f"Invalid mode: {mode}")
@@ -241,6 +292,14 @@ class BookInstance:
                 preference=preference,
             )
             assistant_begin = ORIGINAL_ASSISTANT_BEGIN
+        elif mode == "kar-llmrec":
+            prompt = KAR_LLMREC_SCORE_PROBLEM_PROMPT_TEMPLATE.format(
+                icl_example=icl_content,
+                description=self.target["item_text"],
+                preference=preference,
+                recommendation=recommendation,
+            )
+            assistant_begin = ORIGINAL_ASSISTANT_BEGIN
         elif mode == "scoresumm":
             prompt = SCORESUMM_SCORE_PROBLEM_PROMPT_TEMPLATE.format(
                 icl_example=icl_content,
@@ -262,8 +321,8 @@ class BookInstance:
         return messages
 
 
-def load_books(dataset: Path) -> list[BookInstance]:
+def load_books(dataset: Path, k: int = 5) -> list[BookInstance]:
     return [
-        BookInstance(instance)
+        BookInstance(instance, k = k)
         for instance in pd.read_json(dataset, lines=True).to_dict(orient="records")
     ]

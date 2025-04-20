@@ -18,22 +18,15 @@ from datasets.books import load_books
 import pandas as pd
 
 
-def get_permpst_path(k: int) -> str:
-    return f"/work/gh35/h35008/preference-prediction-prompt/data/permpst/raw/review.valid.c{k}.jsonl"
+def get_permpst_path() -> str:
+    return "/work/gh35/h35008/preference-prediction-prompt/data/permpst/raw/review.valid.c5.jsonl"
 
 
-def get_tldr_path(k: int) -> str:
-    # TODO: Use k
-    return "/work/gh35/h35008/preference-prediction-prompt/data/openai-tldr-axis/raw/valid.c3.jsonl"
+def get_recipe_path() -> str:
+    return "/work/gh35/h35008/preference-prediction-prompt/data/recipe/formatted/PP_test_5.jsonl"
 
 
-def get_recipe_path(k: int) -> str:
-    return f"/work/gh35/h35008/preference-prediction-prompt/data/recipe/formatted/PP_test_{k}.jsonl"
-
-
-def get_books_path(k: int) -> str:
-    # TODO: Use k?
-    assert k == 5
+def get_books_path() -> str:
     return "/work/gh35/h35008/preference-prediction-prompt/data/books/formatted/sampled_books.jsonl"
 
 
@@ -42,7 +35,7 @@ if __name__ == "__main__":
     parser.add_argument("--model", type=str, default="llama-31-8b-i")
     parser.add_argument("--mode", type=str)
     parser.add_argument("--debug", action="store_true", default=False)
-    parser.add_argument("--k", type=int, default=3)
+    parser.add_argument("--k", type=int, default=5)
     parser.add_argument("--from-idx", type=int, required=False, default=None)
     parser.add_argument("--to-idx", type=int, required=False, default=None)
     parser.add_argument("--dataset", type=str, default="permpst")
@@ -57,17 +50,14 @@ if __name__ == "__main__":
     dataset_name = args.dataset
 
     if dataset_name == "permpst":
-        permpst_path = get_permpst_path(k)
-        dataset = load_permpst(permpst_path)
-    elif dataset_name == "tldr":
-        tldr_path = get_tldr_path(k)
-        dataset = load_openai_tldr_axis(tldr_path)
+        permpst_path = get_permpst_path()
+        dataset = load_permpst(permpst_path, k=k)
     elif dataset_name == "recipe":
-        recipe_path = get_recipe_path(k)
-        dataset = load_recipe(recipe_path)
+        recipe_path = get_recipe_path()
+        dataset = load_recipe(recipe_path, k=k)
     elif dataset_name == "books":
-        books_path = get_books_path(k)
-        dataset = load_books(books_path)
+        books_path = get_books_path()
+        dataset = load_books(books_path, k=k)
     else:
         raise ValueError(f"Unknown dataset: {dataset_name}")
 
@@ -102,14 +92,21 @@ if __name__ == "__main__":
     result_rows = []
     for instance in tqdm(dataset):
         preference = None
-        if mode == "kar":
+        score_trend = None
+        recommendation = None
+        if mode == "kar" or mode == "kar-llmrec":
             preference_prompt = instance.make_reasoning_prompt(mode)
             preference = model(preference_prompt)
-        elif mode == "scoresumm":
+        if mode == "kar-llmrec":
+            recommendation_prompt = instance.make_recommendation_prompt(mode)
+            recommendation = model(recommendation_prompt)
+        if mode == "scoresumm":
             score_trend_prompt = instance.make_score_trend_prompt(mode)
             score_trend = model(score_trend_prompt)
 
-        prompt = instance.make_prompt(mode, preference, score_trend=score_trend)
+        prompt = instance.make_prompt(
+            mode, preference, score_trend=score_trend, recommendation=recommendation
+        )
         response = model(prompt)
         result_rows.append(
             [
@@ -119,6 +116,7 @@ if __name__ == "__main__":
                 instance.label_score,
                 preference,
                 score_trend,
+                recommendation,
             ]
         )
 
@@ -131,6 +129,7 @@ if __name__ == "__main__":
             "label_score",
             "preference",
             "score_trend",
+            "recommendation",
         ],
     )
 

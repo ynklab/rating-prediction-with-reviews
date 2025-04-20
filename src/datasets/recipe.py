@@ -69,7 +69,7 @@ KAR_PREFERENCE_REASONING_TEMPLATE = """A user's past recipe reviews are listed b
 
 {icl_example}
 
-Analyze the user's preferences. Provide clear explanations based on details from thep past reviews and other pertinent factors.
+Analyze the user's preferences. Provide clear explanations based on details from the past reviews and other pertinent factors.
 """
 
 KAR_SCORE_PROBLEM_PROMPT_TEMPLATE = """[User Question] You will be presented with several recipes, each accompanied by a review from the same user. Your task is to analyze both the recipe and the corresponding reviews to discern the reviewer's preferences. Afterward, consider a new recipe and create a review that you believe this reviewer would write based on the established preferences. 
@@ -124,13 +124,58 @@ Please remember to replace the placeholder text within the "<>" with the appropr
 [The End of Recipe]
 """
 
+LLMREC_RECPARA_PROMPT_TEMPLATE = """
+The description of a recipe is as follows:
+
+{recipe}
+
+what else should I say if I want to recommend it to others?
+"""
+
+KAR_LLMREC_SCORE_PROBLEM_PROMPT_TEMPLATE = """[User Question] You will be presented with several recipes, each accompanied by a review from the same user. Your task is to analyze both the recipe and the corresponding reviews to discern the reviewer's preferences. Afterward, consider a new recipe and create a review that you believe this reviewer would write based on the established preferences. 
+
+{icl_example}
+
+The preference of him/her is analyzed as follows:
+
+{preference}
+
+Please follow the above user and give a review for the given recipe. The plot's recommendation text is also given as an additional input. Your response should strictly follow the format: 
+```json
+{{
+  "Review": "<proposed review conforms to style demonstrated in the previous reviews>",
+  "Score": <1-5, 1 is the lowest and 5 is the highest>
+}}
+```
+Please remember to replace the placeholder text within the "<>" with the appropriate details of your response.
+
+[The Start of Recipe]
+{recipe}
+[The End of Recipe]
+[The Start of Recommendation Text]
+{recommendation}
+[The End of Recommendation Text]
+"""
+
 
 class RecipeInstance:
-    def __init__(self, instance: dict):
-        self.examples = instance["demonstrations"]
+    def __init__(self, instance: dict, k: int = 5):
+        self.examples = instance["demonstrations"][:k]
         self.target = instance["target"]
         self.label_review = self.target["review"]
         self.label_score = int(self.target["score"])
+
+    def make_recommendation_prompt(self, mode: str):
+        if mode not in ["kar-llmrec"]:
+            raise ValueError(f"Invalid mode: {mode}")
+        prompt = LLMREC_RECPARA_PROMPT_TEMPLATE.format(
+            recipe=self.target["recipe_text"],
+        )
+        messages = [
+            {"role": "system", "content": ORIGINAL_SCORE_SYSTEM_PROMPT},
+            {"role": "user", "content": prompt},
+        ]
+        return messages
 
     def make_score_trend_prompt(self, mode: str):
         if mode not in ["scoresumm"]:
@@ -156,7 +201,7 @@ class RecipeInstance:
         return messages
 
     def make_reasoning_prompt(self, mode: str):
-        if mode not in ["kar"]:
+        if mode not in ["kar", "kar-llmrec"]:
             raise ValueError(f"Invalid mode: {mode}")
         icl_content = ""
         for i, x in enumerate(self.examples):
@@ -179,7 +224,11 @@ class RecipeInstance:
         return messages
 
     def make_prompt(
-        self, mode: str, preference: str | None = None, score_trend: str | None = None
+        self,
+        mode: str,
+        preference: str | None = None,
+        score_trend: str | None = None,
+        recommendation: str | None = None,
     ):
         if mode not in [
             "original",
@@ -188,6 +237,7 @@ class RecipeInstance:
             "cot",
             "ps",
             "kar",
+            "kar-llmrec",
             "scoresumm",
         ]:
             raise ValueError(f"Invalid mode: {mode}")
@@ -239,6 +289,14 @@ class RecipeInstance:
                 preference=preference,
             )
             assistant_begin = ORIGINAL_ASSISTANT_BEGIN
+        elif mode == "kar-llmrec":
+            prompt = KAR_LLMREC_SCORE_PROBLEM_PROMPT_TEMPLATE.format(
+                icl_example=icl_content,
+                recipe=self.target["recipe_text"],
+                recommendation=recommendation,
+                preference=preference,
+            )
+            assistant_begin = ORIGINAL_ASSISTANT_BEGIN
         elif mode == "scoresumm":
             prompt = SCORESUMM_SCORE_PROBLEM_PROMPT_TEMPLATE.format(
                 icl_example=icl_content,
@@ -260,8 +318,8 @@ class RecipeInstance:
         return messages
 
 
-def load_recipe(dataset: Path) -> list[RecipeInstance]:
+def load_recipe(dataset: Path, k: int = 5) -> list[RecipeInstance]:
     return [
-        RecipeInstance(instance)
+        RecipeInstance(instance, k=k)
         for instance in pd.read_json(dataset, lines=True).to_dict(orient="records")
     ]

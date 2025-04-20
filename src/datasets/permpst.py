@@ -70,7 +70,7 @@ KAR_PREFERENCE_REASONING_TEMPLATE = """A critic's past movie reviews are listed 
 
 {icl_example}
 
-Analyze the critic's preferences. Provide clear explanations based on details from thep past reviews and other pertinent factors.
+Analyze the critic's preferences. Provide clear explanations based on details from the past reviews and other pertinent factors.
 """
 
 KAR_SCORE_PROBLEM_PROMPT_TEMPLATE = """[User Question] You will be presented with several plot summaries, each accompanied by a review from the same critic. Your task is to analyze both the plot summaries and the corresponding reviews to discern the reviewer's preferences. Afterward, consider a new plot and create a review that you believe this reviewer would write based on the established preferences. 
@@ -125,13 +125,58 @@ Please remember to replace the placeholder text within the "<>" with the appropr
 [The End of Plot]
 """
 
+LLMREC_RECPARA_PROMPT_TEMPLATE = """
+The description of a movie plot is as follows:
+
+{plot}
+
+what else should I say if I want to recommend it to others?
+"""
+
+KAR_LLMREC_SCORE_PROBLEM_PROMPT_TEMPLATE = """[User Question] You will be presented with several plot summaries, each accompanied by a review from the same critic. Your task is to analyze both the plot summaries and the corresponding reviews to discern the reviewer's preferences. Afterward, consider a new plot and create a review that you believe this reviewer would write based on the established preferences. 
+
+{icl_example}
+
+The preference of him/her is analyzed as follows:
+
+{preference}
+
+Please follow the above critic and give a review for the given plot. The plot's recommendation text is also given as an additional input. Your response should strictly follow the format: 
+```json
+{{
+  "Review": "<proposed review conforms to style demonstrated in the previous reviews>",
+  "Score": <1-10, 1 is the lowest and 10 is the highest>
+}}
+```
+Please remember to replace the placeholder text within the "<>" with the appropriate details of your response.
+
+[The Start of Plot]
+{plot}
+[The End of Plot]
+[The Start of Recommendation Text]
+{recommendation}
+[The End of Recommendation Text]
+"""
+
 
 class PerMPSTInstance:
-    def __init__(self, instance: dict):
-        self.examples = instance["examples"][:-1]
+    def __init__(self, instance: dict, k: int = 5):
+        self.examples = instance["examples"][:-1][:k]
         self.target = instance["examples"][-1]
         self.label_review = self.target["clean_review"]
         self.label_score = self.target["score"]
+
+    def make_recommendation_prompt(self, mode: str):
+        if mode not in ["kar-llmrec"]:
+            raise ValueError(f"Invalid mode: {mode}")
+        prompt = LLMREC_RECPARA_PROMPT_TEMPLATE.format(
+            plot=self.target["summ_plot"],
+        )
+        messages = [
+            {"role": "system", "content": ORIGINAL_SCORE_SYSTEM_PROMPT},
+            {"role": "user", "content": prompt},
+        ]
+        return messages
 
     def make_score_trend_prompt(self, mode: str):
         if mode not in ["scoresumm"]:
@@ -157,7 +202,7 @@ class PerMPSTInstance:
         return messages
 
     def make_reasoning_prompt(self, mode: str):
-        if mode not in ["kar"]:
+        if mode not in ["kar", "kar-llmrec"]:
             raise ValueError(f"Invalid mode: {mode}")
         icl_content = ""
         for i, x in enumerate(self.examples):
@@ -180,7 +225,11 @@ class PerMPSTInstance:
         return messages
 
     def make_prompt(
-        self, mode: str, preference: str | None = None, score_trend: str | None = None
+        self,
+        mode: str,
+        preference: str | None = None,
+        score_trend: str | None = None,
+        recommendation: str | None = None,
     ):
         if mode not in [
             "original",
@@ -189,6 +238,7 @@ class PerMPSTInstance:
             "cot",
             "ps",
             "kar",
+            "kar-llmrec",
             "scoresumm",
         ]:
             raise ValueError(f"Invalid mode: {mode}")
@@ -240,11 +290,19 @@ class PerMPSTInstance:
                 preference=preference,
             )
             assistant_begin = ORIGINAL_ASSISTANT_BEGIN
+        elif mode == "kar-llmrec":
+            prompt = KAR_LLMREC_SCORE_PROBLEM_PROMPT_TEMPLATE.format(
+                icl_example=icl_content,
+                plot=self.target["summ_plot"],
+                recommendation=recommendation,
+                preference=preference,
+            )
+            assistant_begin = ORIGINAL_ASSISTANT_BEGIN
         elif mode == "scoresumm":
             prompt = SCORESUMM_SCORE_PROBLEM_PROMPT_TEMPLATE.format(
                 icl_example=icl_content,
                 plot=self.target["summ_plot"],
-                score_trend=preference,
+                score_trend=score_trend,
             )
             assistant_begin = ORIGINAL_ASSISTANT_BEGIN
         else:
@@ -261,8 +319,8 @@ class PerMPSTInstance:
         return messages
 
 
-def load_permpst(dataset: Path) -> list[PerMPSTInstance]:
+def load_permpst(dataset: Path, k: int = 5) -> list[PerMPSTInstance]:
     return [
-        PerMPSTInstance(instance)
+        PerMPSTInstance(instance, k=k)
         for instance in pd.read_json(dataset, lines=True).to_dict(orient="records")
     ]
