@@ -29,6 +29,14 @@ def get_books_path() -> str:
     return "/work/gh35/h35008/preference-prediction-prompt/data/books/formatted/sampled_books.jsonl"
 
 
+def get_books_short_path() -> str:
+    return "/work/gh35/h35008/preference-prediction-prompt/data/books-short/formatted/sampled_books_short_review.jsonl"
+
+
+def get_permpst_shuffle_path() -> str:
+    return "/work/gh35/h35008/preference-prediction-prompt/data/permpst-shuffle/raw/review.valid.c5.jsonl"
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", type=str, default="llama-31-8b-i")
@@ -56,6 +64,12 @@ if __name__ == "__main__":
         dataset = load_recipe(recipe_path, k=k)
     elif dataset_name == "books":
         books_path = get_books_path()
+        dataset = load_books(books_path, k=k)
+    elif dataset_name == "permpst-shuffle":
+        permpst_shuffle_path = get_permpst_shuffle_path()
+        dataset = load_permpst(permpst_shuffle_path, k=k)
+    elif dataset_name == "books-short":
+        books_path = get_books_short_path()
         dataset = load_books(books_path, k=k)
     else:
         raise ValueError(f"Unknown dataset: {dataset_name}")
