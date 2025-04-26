@@ -33,6 +33,10 @@ def get_books_short_path() -> str:
     return "/work/gh35/h35008/preference-prediction-prompt/data/books-short/formatted/sampled_books_short_review.jsonl"
 
 
+def get_books_even_distr_path() -> str:
+    return "/work/gh35/h35008/preference-prediction-prompt/data/books-even-distr/formatted/sampled_books_even_distr.jsonl"
+
+
 def get_permpst_shuffle_path() -> str:
     return "/work/gh35/h35008/preference-prediction-prompt/data/permpst-shuffle/raw/review.valid.c5.jsonl"
 
@@ -74,6 +78,9 @@ if __name__ == "__main__":
         dataset = load_permpst(permpst_shuffle_path, k=k)
     elif dataset_name == "books-short":
         books_path = get_books_short_path()
+        dataset = load_books(books_path, k=k)
+    elif dataset_name == "books-even-distr":
+        books_path = get_books_even_distr_path()
         dataset = load_books(books_path, k=k)
     else:
         raise ValueError(f"Unknown dataset: {dataset_name}")
