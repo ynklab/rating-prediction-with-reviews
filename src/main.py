@@ -40,6 +40,7 @@ def get_permpst_shuffle_path() -> str:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", type=str, default="llama-31-8b-i")
+    parser.add_argument("--profile-model", type=str, required=False, default=None)
     parser.add_argument("--mode", type=str)
     parser.add_argument("--debug", action="store_true", default=False)
     parser.add_argument("--k", type=int, default=5)
@@ -51,6 +52,9 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     model_name = args.model
+    profile_model_name = model_name
+    if args.profile_model is not None:
+        profile_model_name = args.profile_model
     mode = args.mode
     debug = args.debug
     k = args.k
@@ -81,7 +85,7 @@ if __name__ == "__main__":
         "user-profile-noicl",
     ]:
         preference_csv = pd.read_csv(
-            f"/work/gh35/h35008/preference-prediction-prompt/data/{dataset_name}/user_profile/{model_name}/output.csv"
+            f"/work/gh35/h35008/preference-prediction-prompt/data/{dataset_name}/user_profile/{profile_model_name}/output.csv"
         )
 
         preference_list = preference_csv["raw_response"].tolist()
@@ -98,9 +102,7 @@ if __name__ == "__main__":
         to_idx = len(dataset)
 
     job_id = os.environ["PJM_JOBID"]
-    run_id = (
-        f"{job_id}_{model_name}_{mode}_{dataset_name}_{k}_from_{from_idx}_to_{to_idx}"
-    )
+    run_id = f"{job_id}_{model_name}_{mode}_{dataset_name}_{k}_from_{from_idx}_to_{to_idx}_profile_{profile_model_name}"
     if debug:
         run_id = f"0_debug_{run_id}"
     print(f"Run ID: {run_id}")
