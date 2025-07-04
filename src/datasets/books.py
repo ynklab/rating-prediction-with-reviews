@@ -160,6 +160,77 @@ Please remember to replace the placeholder text within the "<>" with the appropr
 [The End of Recommendation Text]
 """
 
+USER_PROFILE_GENERATION_TEMPLATE = """A user's past book reviews are listed below:
+
+{icl_example}
+
+Write the passage this person would write when asked to describe their book preferences.
+The passage must start with “I like …” and be no more than 300 characters long.
+"""
+
+
+USER_PROFILE_NOREVIEW_PROBLEM_PROMPT_TEMPLATE = """[User Question] You will be presented with several book descriptions, each accompanied by a review from the same user. Your task is to analyze both the descriptions and the corresponding reviews to discern the reviewer's preferences. Afterward, consider a new book description and create a review that you believe this reviewer would write based on the established preferences. 
+
+{icl_example}
+
+His / her self-description of the preference is as follows:
+
+{preference}
+
+Please follow the above user and give a review for the given book. Your response should strictly follow the format: 
+```json
+{{
+  "Score": <1-5, 1 is the lowest and 5 is the highest>
+}}
+```
+Please remember to replace the placeholder text within the "<>" with the appropriate details of your response.
+
+[The Start of Book Description]
+{description}
+[The End of Book Description]
+"""
+
+USER_PROFILE_PROBLEM_PROMPT_TEMPLATE = """[User Question] You will be presented with several book descriptions, each accompanied by a review from the same user. Your task is to analyze both the descriptions and the corresponding reviews to discern the reviewer's preferences. Afterward, consider a new book description and create a review that you believe this reviewer would write based on the established preferences. 
+
+{icl_example}
+
+His / her self-description of the preference is as follows:
+
+{preference}
+
+Please follow the above user and give a review for the given book. Your response should strictly follow the format: 
+```json
+{{
+  "Review": "<proposed review conforms to style demonstrated in the previous reviews>",
+  "Score": <1-5, 1 is the lowest and 5 is the highest>
+}}
+```
+Please remember to replace the placeholder text within the "<>" with the appropriate details of your response.
+
+[The Start of Book Description]
+{description}
+[The End of Book Description]
+"""
+
+USER_PROFILE_NO_ICL_PROBLEM_PROMPT_TEMPLATE = """[User Question] You will be presented with the self-description of the book preference written by a book user. Your task is to analyze the reviewer's preferences. Afterward, consider a new book description and create a review that you believe this reviewer would write based on the established preferences. 
+
+His / her self-description of the preference is as follows:
+
+{preference}
+
+Please follow the above preference and give a review for the given book. Your response should strictly follow the format: 
+```json
+{{
+  "Score": <1-5, 1 is the lowest and 5 is the highest>
+}}
+```
+Please remember to replace the placeholder text within the "<>" with the appropriate details of your response.
+
+[The Start of Book Description]
+{description}
+[The End of Book Description]
+"""
+
 
 class BookInstance:
     def __init__(self, instance: dict, k: int = 5):
@@ -167,6 +238,25 @@ class BookInstance:
         self.target = instance["target"]
         self.label_review = self.target["review"]
         self.label_score = int(self.target["score"])
+
+    def make_user_profile_prompt(self):
+        icl_content = ""
+        for i, x in enumerate(self.examples):
+            case = ORIGINAL_SCORE_CASE_TEMPLATE.format(
+                n=i + 1,
+                description=x["item_text"],
+                review=x["review"],
+                score=int(x["score"]),
+            )
+            icl_content += case + "\n"
+        prompt = USER_PROFILE_GENERATION_TEMPLATE.format(
+            icl_example=icl_content,
+        )
+        messages = [
+            {"role": "system", "content": ORIGINAL_SCORE_SYSTEM_PROMPT},
+            {"role": "user", "content": prompt},
+        ]
+        return messages
 
     def make_recommendation_prompt(self, mode: str):
         if mode not in ["kar-llmrec"]:
@@ -242,11 +332,15 @@ class BookInstance:
             "kar",
             "kar-llmrec",
             "scoresumm",
+            "user-profile",
+            "user-profile-readreview",
+            "user-profile-noreview",
+            "user-profile-noicl",
         ]:
             raise ValueError(f"Invalid mode: {mode}")
         icl_content = ""
         for i, x in enumerate(self.examples):
-            if mode == "noreview":
+            if mode in ["noreview", "user-profile-noreview"]:
                 case = NOREVIEWS_SCORE_CASE_TEMPLATE.format(
                     n=i + 1,
                     description=x["item_text"],
@@ -307,6 +401,26 @@ class BookInstance:
                 score_trend=score_trend,
             )
             assistant_begin = ORIGINAL_ASSISTANT_BEGIN
+        elif mode == "user-profile":
+            prompt = USER_PROFILE_PROBLEM_PROMPT_TEMPLATE.format(
+                icl_example=icl_content,
+                description=self.target["item_text"],
+                preference=preference,
+            )
+            assistant_begin = ORIGINAL_ASSISTANT_BEGIN
+        elif mode in ["user-profile-readreview", "user-profile-noreview"]:
+            prompt = USER_PROFILE_NOREVIEW_PROBLEM_PROMPT_TEMPLATE.format(
+                icl_example=icl_content,
+                description=self.target["item_text"],
+                preference=preference,
+            )
+            assistant_begin = ORIGINAL_ASSISTANT_BEGIN
+        elif mode == "user-profile-noicl":
+            prompt = USER_PROFILE_NO_ICL_PROBLEM_PROMPT_TEMPLATE.format(
+                description=self.target["item_text"],
+                preference=preference,
+            )
+            assistant_begin = ORIGINAL_ASSISTANT_BEGIN
         else:
             raise ValueError(f"Invalid mode: {mode}")
         messages = [
@@ -323,6 +437,6 @@ class BookInstance:
 
 def load_books(dataset: Path, k: int = 5) -> list[BookInstance]:
     return [
-        BookInstance(instance, k = k)
+        BookInstance(instance, k=k)
         for instance in pd.read_json(dataset, lines=True).to_dict(orient="records")
     ]
