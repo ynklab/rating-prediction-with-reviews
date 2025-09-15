@@ -186,6 +186,7 @@ if __name__ == "__main__":
 
     # MSE
     mse = sklearn.metrics.mean_squared_error(non_null_label, non_null_output)
+    rmse = np.sqrt(mse)
 
     reviewer_score_avgs = [
         np.mean(json.loads(scores)) for scores in non_null_output_df["reviewer_scores"]
@@ -218,6 +219,7 @@ if __name__ == "__main__":
                 "spearman_corr": spearman_corr,
                 "mae": mae,
                 "mse": mse,
+                "rmse": rmse,
                 "reviewer_avg_kendall_corr": reviewer_avg_kendall_corr,
                 "reviewer_avg_spearman_corr": reviewer_avg_spearman_corr,
                 # "reviewer_avg_mae": reviewer_avg_mae,

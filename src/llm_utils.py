@@ -1,3 +1,4 @@
+from litellm import completion, completion_cost
 import torch
 import transformers
 import hashlib
@@ -161,6 +162,19 @@ class QwQPipeline:
         return response
 
 
+class LiteLLMPipeline:
+    def __init__(self, model_id: str):
+        self.model_id = model_id
+
+    def __call__(self, prompt: list[dict]) -> str:
+        response = completion(
+            model=self.model_id,
+            messages=prompt,
+        )
+        print(f"Cost: {completion_cost(response)}")
+        return response.choices[0].message.content
+
+
 MODEL = None
 
 
@@ -169,8 +183,9 @@ def load_model(model: str):
     if MODEL is not None:
         return MODEL
     else:
-        hf_token = os.environ["HF_TOKEN"]
-        login(token=hf_token)
+        hf_token = os.environ.get("HF_TOKEN")
+        if hf_token:
+            login(token=hf_token)
         if model.startswith("gemma"):
             model_id = get_model_id(model)
             MODEL = GemmaPipeline(model_id)
@@ -178,6 +193,18 @@ def load_model(model: str):
         elif model.startswith("qwq"):
             model_id = get_model_id(model)
             MODEL = QwQPipeline(model_id)
+            return MODEL
+        elif model == "o3":
+            MODEL = LiteLLMPipeline("openai/o3-2025-04-16")
+            return MODEL
+        elif model == "gpt-41":
+            MODEL = LiteLLMPipeline("openai/gpt-4.1")
+            return MODEL
+        elif model == "claude-35-haiku":
+            MODEL = LiteLLMPipeline("anthropic/claude-3-5-haiku-20241022")
+            return MODEL
+        elif model == "claude-4-sonnet":
+            MODEL = LiteLLMPipeline("anthropic/claude-sonnet-4-20250514")
             return MODEL
         else:
             model_id = get_model_id(model)
