@@ -148,7 +148,6 @@ Please follow the above user and give a review for the given book. The book's re
   "Review": "<proposed review conforms to style demonstrated in the previous reviews>",
   "Score": <1-5, 1 is the lowest and 5 is the highest>
 }},
-    "/work/gh35/h35008/preference-prediction-prompt/outputs/6807980_gemma3-12b-it_kar-llmrec_books_5_from_750_to_1000/raw_output.csv"
 ```
 Please remember to replace the placeholder text within the "<>" with the appropriate details of your response.
 

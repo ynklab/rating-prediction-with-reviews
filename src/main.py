@@ -96,7 +96,8 @@ if __name__ == "__main__":
         "user-profile-noicl",
     ]:
         preference_csv = pd.read_csv(
-            f"/work/gh35/h35008/preference-prediction-prompt/data/{dataset_name}/user_profile/{profile_model_name}/output.csv"
+            this_dir
+            / f"../data/{dataset_name}/user_profile/{profile_model_name}/output.csv"
         )
 
         preference_list = preference_csv["raw_response"].tolist()

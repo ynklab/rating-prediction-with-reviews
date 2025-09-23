@@ -15,17 +15,19 @@ from datasets.recipe import load_recipe
 from datasets.books import load_books
 import pandas as pd
 
+this_dir = Path(__file__).parent
+
 
 def get_permpst_path() -> str:
-    return "/work/gh35/h35008/preference-prediction-prompt/data/permpst/raw/review.valid.c5.jsonl"
+    return this_dir / "../data/permpst/raw/review.valid.c5.jsonl"
 
 
 def get_recipe_path() -> str:
-    return "/work/gh35/h35008/preference-prediction-prompt/data/recipe/formatted/PP_test_5.jsonl"
+    return this_dir / "../data/recipe/formatted/PP_test_5.jsonl"
 
 
 def get_books_path() -> str:
-    return "/work/gh35/h35008/preference-prediction-prompt/data/books/formatted/sampled_books.jsonl"
+    return this_dir / "../data/books/formatted/sampled_books.jsonl"
 
 
 if __name__ == "__main__":
@@ -79,7 +81,8 @@ if __name__ == "__main__":
         ],
     )
     output_path = (
-        Path("/work/gh35/h35008/preference-prediction-prompt/data/")
+        this_dir
+        / "../data/"
         / dataset_name
         / "user_profile"
         / model_name
