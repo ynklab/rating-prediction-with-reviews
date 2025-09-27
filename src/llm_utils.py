@@ -24,6 +24,8 @@ def get_model_id(model: str):
         return "meta-llama/Llama-3.1-8B"
     elif model == "r1-distill-llama":
         return "deepseek-ai/DeepSeek-R1-Distill-Llama-8B"
+    elif model == "qwen3-8b":
+        return "Qwen/Qwen3-8B"
     else:
         raise ValueError(f"Invalid model: {model}")
 
@@ -175,6 +177,42 @@ class LiteLLMPipeline:
         return response.choices[0].message.content
 
 
+class QwenPipeline:
+    def __init__(self, model_id: str):
+        self.processor = AutoTokenizer.from_pretrained(model_id)
+        self.model = AutoModelForCausalLM.from_pretrained(
+            model_id, device_map="auto", torch_dtype=torch.bfloat16
+        )
+
+    def __call__(self, prompt: list[dict]) -> str:
+        # Generate the response from the model
+        inputs = self.processor.apply_chat_template(
+            prompt,
+            add_generation_prompt=True,
+            tokenize=False,
+        )
+        model_inputs = self.processor([inputs], return_tensors="pt").to(
+            self.model.device
+        )
+
+        generated_ids = self.model.generate(**model_inputs, max_new_tokens=32768)
+        output_ids = generated_ids[0][len(model_inputs.input_ids[0]) :].tolist()
+        try:
+            # rindex finding 151668 (</think>)
+            index = len(output_ids) - output_ids[::-1].index(151668)
+        except ValueError:
+            index = 0
+
+        thinking_content = self.processor.decode(
+            output_ids[:index], skip_special_tokens=True
+        ).strip("\n")
+        content = self.processor.decode(
+            output_ids[index:], skip_special_tokens=True
+        ).strip("\n")  # parsing thinking content
+
+        return content
+
+
 MODEL = None
 
 
@@ -205,6 +243,9 @@ def load_model(model: str):
             return MODEL
         elif model == "claude-4-sonnet":
             MODEL = LiteLLMPipeline("anthropic/claude-sonnet-4-20250514")
+        elif model.startswith("qwen"):
+            model_id = get_model_id(model)
+            MODEL = QwQPipeline(model_id)
             return MODEL
         else:
             model_id = get_model_id(model)
